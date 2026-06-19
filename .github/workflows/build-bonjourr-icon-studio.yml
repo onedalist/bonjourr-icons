@@ -1,10 +1,10 @@
 name: Build Bonjourr Icon Studio
-# Build revision 6
+# Build revision 7
 
 on:
   push:
     branches:
-      - app-build
+      - 'app-build*'
   workflow_dispatch:
 
 jobs:
