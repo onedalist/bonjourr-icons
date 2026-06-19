@@ -1,0 +1,320 @@
+<Window x:Class="BonjourrIconStudio.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:BonjourrIconStudio.Models"
+        Title="Bonjourr Icon Studio"
+        Width="1480" Height="920"
+        MinWidth="1180" MinHeight="760"
+        WindowStartupLocation="CenterScreen"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+            <Grid Margin="16,22">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Margin="10,0,10,28">
+                    <Border Width="48" Height="48" HorizontalAlignment="Left" CornerRadius="14" Background="{StaticResource AccentBrush}">
+                        <TextBlock Text="B" FontSize="24" FontWeight="Bold" Foreground="#07110F" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Bonjourr" Margin="0,14,0,0" FontSize="19" FontWeight="SemiBold" />
+                    <TextBlock Text="Icon Studio" Foreground="{StaticResource MutedTextBrush}" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1">
+                    <Button x:Name="EditorNavButton" Style="{StaticResource NavButton}" Click="ShowEditor_Click" Background="#1D2A32">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="✦" Width="28" /><TextBlock Text="Редактор" /></StackPanel>
+                    </Button>
+                    <Button x:Name="PublishNavButton" Style="{StaticResource NavButton}" Click="ShowPublish_Click">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="↑" Width="28" /><TextBlock Text="Публикация" /></StackPanel>
+                    </Button>
+                    <Button x:Name="SettingsNavButton" Style="{StaticResource NavButton}" Click="ShowSettings_Click">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="⚙" Width="28" /><TextBlock Text="Настройки" /></StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <Border Grid.Row="3" Background="#111821" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="Локальная обработка" FontWeight="SemiBold" FontSize="13" />
+                        <TextBlock Text="Изображения не покидают компьютер до нажатия «Загрузить»." Margin="0,5,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Column="1" Background="{StaticResource WindowBrush}">
+            <!-- EDITOR -->
+            <Grid x:Name="EditorPanel" Margin="34,26">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Margin="0,0,0,22">
+                    <TextBlock Text="Редактор иконки" Style="{StaticResource TitleText}" />
+                    <TextBlock Text="Расположите изображение внутри непрерывной маски iOS 27." Style="{StaticResource MutedText}" Margin="0,5,0,0" />
+                </StackPanel>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="410" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource PanelStyle}" Margin="0,0,22,0" Padding="26">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <Viewbox Stretch="Uniform" Margin="6">
+                                <Grid x:Name="EditorStage"
+                                      Width="640" Height="640"
+                                      Background="#080B10"
+                                      AllowDrop="True"
+                                      Drop="EditorStage_Drop"
+                                      DragOver="EditorStage_DragOver"
+                                      MouseLeftButtonDown="EditorStage_MouseLeftButtonDown"
+                                      MouseLeftButtonUp="EditorStage_MouseLeftButtonUp"
+                                      MouseMove="EditorStage_MouseMove"
+                                      MouseWheel="EditorStage_MouseWheel"
+                                      MouseLeave="EditorStage_MouseLeave">
+                                    <Canvas x:Name="DimmedCanvas" ClipToBounds="True">
+                                        <Image x:Name="DimmedImage" Opacity="0.17" Stretch="Fill" />
+                                    </Canvas>
+                                    <Canvas x:Name="MaskedCanvas" ClipToBounds="True">
+                                        <Image x:Name="PreviewImage" Stretch="Fill" />
+                                    </Canvas>
+                                    <Path x:Name="MaskOutline" Fill="Transparent" Stroke="#75FFFFFF" StrokeThickness="2" />
+                                    <Border x:Name="DropHint" Background="#D90D1219" BorderBrush="#4DFFFFFF" BorderThickness="1" CornerRadius="24" Margin="70">
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="＋" FontSize="54" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" />
+                                            <TextBlock Text="Перетащите изображение" FontSize="21" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                            <TextBlock Text="PNG, JPEG, WebP или AVIF" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Center" Margin="0,7,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Viewbox>
+
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,18,0,0">
+                                <TextBlock x:Name="ImageInfoText" Text="Изображение не выбрано" Foreground="{StaticResource MutedTextBrush}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Style="{StaticResource PanelStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <TextBlock Text="Изображение" Style="{StaticResource SectionTitleText}" />
+                                    <Button Content="Выбрать изображение…" Margin="0,14,0,0" Click="OpenImage_Click" />
+
+                                    <DockPanel Margin="0,20,0,6">
+                                        <TextBlock Text="Масштаб" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="ZoomValueText" Text="100%" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
+                                    </DockPanel>
+                                    <Slider x:Name="ZoomSlider" Minimum="1" Maximum="4" Value="1" SmallChange="0.02" LargeChange="0.2" ValueChanged="ZoomSlider_ValueChanged" />
+
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Content="Заполнить" Margin="0,0,6,0" Click="FitImage_Click" />
+                                        <Button Grid.Column="1" Content="Сбросить" Margin="6,0,0,0" Click="ResetImage_Click" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource PanelStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="Экспорт" Style="{StaticResource SectionTitleText}" />
+
+                                    <TextBlock Text="Название файла" Margin="0,16,0,7" FontWeight="SemiBold" />
+                                    <TextBox x:Name="BaseNameTextBox" Text="icon_01" />
+
+                                    <TextBlock Text="Размеры" Margin="0,16,0,6" FontWeight="SemiBold" />
+                                    <WrapPanel>
+                                        <CheckBox x:Name="Size128CheckBox" Content="128 px" IsChecked="True" Margin="0,5,18,5" />
+                                        <CheckBox x:Name="Size256CheckBox" Content="256 px" Margin="0,5,18,5" />
+                                        <CheckBox x:Name="Size512CheckBox" Content="512 px" Margin="0,5,0,5" />
+                                    </WrapPanel>
+
+                                    <TextBlock Text="Форматы" Margin="0,13,0,6" FontWeight="SemiBold" />
+                                    <WrapPanel>
+                                        <CheckBox x:Name="PngCheckBox" Content="PNG" Margin="0,5,18,5" />
+                                        <CheckBox x:Name="WebPCheckBox" Content="WebP" IsChecked="True" Margin="0,5,18,5" />
+                                        <CheckBox x:Name="AvifCheckBox" Content="AVIF" Margin="0,5,0,5" />
+                                    </WrapPanel>
+
+                                    <TextBlock Text="Папка сохранения" Margin="0,14,0,7" FontWeight="SemiBold" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="ExportFolderTextBox" IsReadOnly="True" />
+                                        <Button Grid.Column="1" Content="…" Width="46" Margin="8,0,0,0" Padding="4" Click="ChooseExportFolder_Click" />
+                                    </Grid>
+
+                                    <Button x:Name="ExportButton" Content="Экспортировать" Style="{StaticResource PrimaryButton}" Margin="0,18,0,0" Click="Export_Click" IsEnabled="False" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <Border Grid.Row="2" Margin="0,18,0,0" Background="#10161E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12,9">
+                    <TextBlock x:Name="EditorStatusText" Text="Готов к работе" Foreground="{StaticResource MutedTextBrush}" />
+                </Border>
+            </Grid>
+
+            <!-- PUBLISH -->
+            <Grid x:Name="PublishPanel" Margin="34,26" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Margin="0,0,0,22">
+                    <TextBlock Text="Публикация в GitHub" Style="{StaticResource TitleText}" />
+                    <TextBlock x:Name="PublishSubtitleText" Text="Загрузите экспортированные или уже готовые изображения в репозиторий." Style="{StaticResource MutedText}" Margin="0,5,0,0" />
+                </StackPanel>
+
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="360" /></Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource PanelStyle}" Margin="0,0,22,0">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                            <DockPanel Margin="0,0,0,16">
+                                <TextBlock Text="Очередь файлов" Style="{StaticResource SectionTitleText}" VerticalAlignment="Center" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <Button Content="Добавить готовые…" Padding="13,8" Margin="0,0,8,0" Click="AddReadyFiles_Click" />
+                                    <Button Content="Удалить" Padding="13,8" Click="RemoveSelectedFiles_Click" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <ListBox Grid.Row="1" x:Name="UploadList" Background="Transparent" BorderThickness="0" ItemsSource="{Binding UploadItems}">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Margin" Value="0,0,0,8" />
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type models:UploadItem}">
+                                        <Border Background="#10161E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="14">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,13,0" />
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding Status}" Foreground="{StaticResource MutedTextBrush}" FontSize="13" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding SizeLabel}" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="1">
+                        <Border Style="{StaticResource PanelStyle}" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Назначение" Style="{StaticResource SectionTitleText}" />
+                                <TextBlock x:Name="RepoSummaryText" Margin="0,12,0,0" TextWrapping="Wrap" />
+                                <TextBlock x:Name="TokenSummaryText" Margin="0,8,0,0" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource PanelStyle}">
+                            <StackPanel>
+                                <CheckBox x:Name="OverwriteCheckBox" Content="Заменять файлы с совпадающими именами" />
+                                <Button x:Name="UploadButton" Content="Загрузить выбранные" Style="{StaticResource PrimaryButton}" Margin="0,15,0,0" Click="Upload_Click" />
+                                <TextBlock Text="После загрузки ссылку GitHub Pages можно скопировать из статуса файла." Style="{StaticResource MutedText}" FontSize="13" Margin="0,12,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="2" Margin="0,18,0,0" Background="#10161E" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="10" Padding="12,9">
+                    <TextBlock x:Name="PublishStatusText" Text="Файлы не выбраны" Foreground="{StaticResource MutedTextBrush}" />
+                </Border>
+            </Grid>
+
+            <!-- SETTINGS -->
+            <ScrollViewer x:Name="SettingsPanel" Margin="34,26" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                    <TextBlock Text="Настройки" Style="{StaticResource TitleText}" />
+                    <TextBlock Text="Репозиторий, защищённый токен и переносимый профиль." Style="{StaticResource MutedText}" Margin="0,5,0,22" />
+
+                    <Border Style="{StaticResource PanelStyle}" Margin="0,0,0,18">
+                        <StackPanel>
+                            <TextBlock Text="Репозиторий" Style="{StaticResource SectionTitleText}" />
+                            <Grid Margin="0,16,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,9,0">
+                                    <TextBlock Text="Владелец" Margin="0,0,0,7" />
+                                    <TextBox x:Name="OwnerTextBox" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="9,0,0,0">
+                                    <TextBlock Text="Репозиторий" Margin="0,0,0,7" />
+                                    <TextBox x:Name="RepoTextBox" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <StackPanel Margin="0,0,9,0">
+                                    <TextBlock Text="Ветка" Margin="0,0,0,7" />
+                                    <TextBox x:Name="BranchTextBox" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="9,0,0,0">
+                                    <TextBlock Text="Папка" Margin="0,0,0,7" />
+                                    <TextBox x:Name="RepoFolderTextBox" />
+                                </StackPanel>
+                            </Grid>
+                            <Button Content="Сохранить настройки" HorizontalAlignment="Left" Margin="0,16,0,0" Click="SaveRepositorySettings_Click" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource PanelStyle}" Margin="0,0,0,18">
+                        <StackPanel>
+                            <TextBlock Text="GitHub-токен" Style="{StaticResource SectionTitleText}" />
+                            <TextBlock x:Name="VaultStatusText" Text="Токен не сохранён" Style="{StaticResource MutedText}" Margin="0,7,0,0" />
+                            <PasswordBox x:Name="TokenPasswordBox" Margin="0,15,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button Content="Проверить" Click="TestToken_Click" Margin="0,0,8,0" />
+                                <Button Content="Сохранить токен" Style="{StaticResource PrimaryButton}" Click="SaveToken_Click" Margin="0,0,8,0" />
+                                <Button Content="Удалить" Click="DeleteToken_Click" />
+                            </StackPanel>
+                            <TextBlock Text="При сохранении приложение попросит задать восстановительный пароль. При обычных запусках вводить его не потребуется." Style="{StaticResource MutedText}" FontSize="13" Margin="0,13,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource PanelStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Переносимый профиль" Style="{StaticResource SectionTitleText}" />
+                            <TextBlock Text="Зашифрованную резервную копию можно сохранить на другом диске или в облачной папке и восстановить после переустановки Windows." Style="{StaticResource MutedText}" Margin="0,7,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button Content="Экспортировать профиль…" Click="ExportProfile_Click" Margin="0,0,8,0" />
+                                <Button Content="Импортировать профиль…" Click="ImportProfile_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Window>
