@@ -60,7 +60,7 @@ public sealed class ImageProcessor
         source.AutoOrient();
         source.ColorSpace = ColorSpace.sRGB;
         source.Crop(new MagickGeometry(crop.X, crop.Y, crop.Size, crop.Size));
-        source.RePage();
+        source.ResetPage();
 
         foreach (var size in request.Sizes.OrderBy(value => value))
         {
