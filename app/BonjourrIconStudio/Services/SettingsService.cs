@@ -26,7 +26,6 @@ public sealed class SettingsService
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
             if (string.IsNullOrWhiteSpace(settings.ExportFolder))
                 settings.ExportFolder = PortablePaths.DefaultExportFolder;
-            settings.LiquidGlassThickness = Math.Clamp(settings.LiquidGlassThickness, 0.5d, 16d);
             if (!Enum.IsDefined(settings.LiquidGlassVariant))
                 settings.LiquidGlassVariant = LiquidGlassVariant.Light;
             return settings;
