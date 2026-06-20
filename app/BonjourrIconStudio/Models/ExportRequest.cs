@@ -7,6 +7,12 @@ public enum IconFormat
     Avif
 }
 
+public enum LiquidGlassVariant
+{
+    Light,
+    Dark
+}
+
 public sealed record CropState(
     string SourcePath,
     int OrientedWidth,
@@ -24,6 +30,6 @@ public sealed record ExportRequest(
     IReadOnlyCollection<IconFormat> Formats,
     int WebPQuality,
     int AvifQuality,
-    double ShapeExponent,
     bool AddLiquidGlassOutline,
-    double LiquidGlassThickness);
+    double LiquidGlassThickness,
+    LiquidGlassVariant LiquidGlassVariant);
