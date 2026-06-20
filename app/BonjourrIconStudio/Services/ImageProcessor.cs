@@ -270,7 +270,7 @@ public sealed class ImageProcessor
     }
 
     private static MagickImage CreateLiquidGlassRefraction(
-        MagickImage source,
+        IMagickImage<byte> source,
         int size,
         double opticalDepth,
         double maximumDisplacement,
