@@ -97,7 +97,17 @@
                                     <Canvas x:Name="MaskedCanvas" ClipToBounds="True">
                                         <Image x:Name="PreviewImage" Stretch="Fill" />
                                     </Canvas>
-                                    <Path x:Name="MaskOutline" Fill="Transparent" Stroke="#75FFFFFF" StrokeThickness="2" />
+                                    <Path x:Name="MaskOutline" Fill="Transparent" Stroke="#60FFFFFF" StrokeThickness="1.5" />
+                                    <Path x:Name="LiquidGlassOutline" Fill="Transparent" Visibility="Collapsed">
+                                        <Path.Stroke>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                <GradientStop Color="#E6FFFFFF" Offset="0" />
+                                                <GradientStop Color="#70E9FFF9" Offset="0.42" />
+                                                <GradientStop Color="#28FFFFFF" Offset="0.72" />
+                                                <GradientStop Color="#8AFFFFFF" Offset="1" />
+                                            </LinearGradientBrush>
+                                        </Path.Stroke>
+                                    </Path>
                                     <Border x:Name="DropHint" Background="#D90D1219" BorderBrush="#4DFFFFFF" BorderThickness="1" CornerRadius="24" Margin="70">
                                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <TextBlock Text="＋" FontSize="54" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" />
@@ -132,6 +142,52 @@
                                         <Button Grid.Column="0" Content="Заполнить" Margin="0,0,6,0" Click="FitImage_Click" />
                                         <Button Grid.Column="1" Content="Сбросить" Margin="6,0,0,0" Click="ResetImage_Click" />
                                     </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource PanelStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <TextBlock Text="Форма" Style="{StaticResource SectionTitleText}" />
+
+                                    <StackPanel Margin="0,11,0,0">
+                                        <RadioButton x:Name="Apple27RadioButton" Content="Apple 27" GroupName="ShapePreset" Tag="apple-27" Checked="ShapePreset_Checked" />
+                                        <RadioButton x:Name="IosClassicRadioButton" Content="iOS Classic" GroupName="ShapePreset" Tag="ios-classic" Checked="ShapePreset_Checked" />
+                                        <RadioButton x:Name="CustomShapeRadioButton" Content="Своя" GroupName="ShapePreset" Tag="custom" Checked="ShapePreset_Checked" />
+                                        <TextBlock x:Name="SavedShapesLabel" Text="Сохранённые" Margin="0,12,0,3" FontSize="13" Foreground="{StaticResource MutedTextBrush}" Visibility="Collapsed" />
+                                        <StackPanel x:Name="SavedShapesPanel" />
+                                    </StackPanel>
+
+                                    <DockPanel Margin="0,14,0,5">
+                                        <TextBlock Text="Степень суперэллипса" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="ShapeExponentValueText" Text="n = 4,2" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
+                                    </DockPanel>
+                                    <Slider x:Name="ShapeExponentSlider"
+                                            Minimum="2" Maximum="8" Value="4.2"
+                                            TickFrequency="0.1"
+                                            SmallChange="0.1" LargeChange="0.5"
+                                            IsSnapToTickEnabled="True"
+                                            ValueChanged="ShapeExponentSlider_ValueChanged" />
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <Button x:Name="SaveShapeButton" Grid.Column="0" Content="Сохранить форму…" Margin="0,0,8,0" Click="SaveShape_Click" />
+                                        <Button x:Name="DeleteShapeButton" Grid.Column="1" Content="Удалить" Click="DeleteShape_Click" Visibility="Collapsed" />
+                                    </Grid>
+
+                                    <Separator Margin="0,17,0,13" Background="{StaticResource BorderBrush}" />
+
+                                    <CheckBox x:Name="LiquidGlassCheckBox" Content="Контур Liquid Glass" Checked="LiquidGlassCheckBox_Changed" Unchecked="LiquidGlassCheckBox_Changed" />
+                                    <DockPanel x:Name="LiquidGlassThicknessPanel" Margin="0,8,0,4" IsEnabled="False">
+                                        <TextBlock Text="Толщина" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="LiquidGlassThicknessValueText" Text="1,0 px" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
+                                    </DockPanel>
+                                    <Slider x:Name="LiquidGlassThicknessSlider"
+                                            Minimum="0.5" Maximum="4" Value="1"
+                                            TickFrequency="0.1"
+                                            SmallChange="0.1" LargeChange="0.5"
+                                            IsSnapToTickEnabled="True"
+                                            IsEnabled="False"
+                                            ValueChanged="LiquidGlassThicknessSlider_ValueChanged" />
                                 </StackPanel>
                             </Border>
 
