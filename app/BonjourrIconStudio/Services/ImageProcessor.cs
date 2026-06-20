@@ -73,17 +73,27 @@ public sealed class ImageProcessor
             prepared.Resize(workingSize, workingSize);
             prepared.Alpha(AlphaOption.On);
 
-            using (var mask = CreateMask(checked((int)workingSize)))
-                prepared.Composite(mask, CompositeOperator.CopyAlpha);
-
             if (request.AddLiquidGlassOutline)
             {
+                var glassScale = workingSize / 128d;
+                using var refraction = CreateLiquidGlassRefraction(
+                    prepared,
+                    checked((int)workingSize),
+                    12d * glassScale,
+                    5d * glassScale,
+                    0.7d * glassScale,
+                    request.LiquidGlassVariant);
+                prepared.Composite(refraction, CompositeOperator.Over);
+
                 using var outline = CreateLiquidGlassOutline(
                     checked((int)workingSize),
-                    request.LiquidGlassThickness * size / 128d * Oversampling,
+                    4d * glassScale,
                     request.LiquidGlassVariant);
                 prepared.Composite(outline, CompositeOperator.Over);
             }
+
+            using (var mask = CreateMask(checked((int)workingSize)))
+                prepared.Composite(mask, CompositeOperator.CopyAlpha);
 
             prepared.FilterType = FilterType.Lanczos;
             prepared.Resize((uint)size, (uint)size);
@@ -257,6 +267,136 @@ public sealed class ImageProcessor
         }
 
         return CreateImageFromBgraPixels(size, pixels);
+    }
+
+    private static MagickImage CreateLiquidGlassRefraction(
+        MagickImage source,
+        int size,
+        double opticalDepth,
+        double maximumDisplacement,
+        double blurRadius,
+        LiquidGlassVariant variant)
+    {
+        using var rawSource = source.Clone();
+        rawSource.Format = MagickFormat.Bgra;
+        var sourcePixels = rawSource.ToByteArray();
+        var outputPixels = new byte[checked(size * size * 4)];
+        var half = size / 2d;
+        var normalizedCoordinates = new double[size];
+        var poweredCoordinates = new double[size];
+        var signedGradients = new double[size];
+
+        for (var coordinate = 0; coordinate < size; coordinate++)
+        {
+            var normalized = (coordinate + 0.5d - half) / half;
+            var absolute = Math.Abs(normalized);
+            normalizedCoordinates[coordinate] = normalized;
+            poweredCoordinates[coordinate] = Math.Pow(absolute, SquircleGeometry.DefaultExponent);
+            signedGradients[coordinate] = Math.Sign(normalized) *
+                                          Math.Pow(absolute, SquircleGeometry.DefaultExponent - 1d);
+        }
+
+        for (var y = 0; y < size; y++)
+        {
+            var normalizedY = normalizedCoordinates[y];
+            for (var x = 0; x < size; x++)
+            {
+                var normalizedX = normalizedCoordinates[x];
+                var field = poweredCoordinates[x] + poweredCoordinates[y];
+                if (field > 1d || field < 1e-12) continue;
+
+                var boundaryScale = Math.Pow(field, -1d / SquircleGeometry.DefaultExponent);
+                var distance = (boundaryScale - 1d) *
+                               Math.Sqrt(normalizedX * normalizedX + normalizedY * normalizedY) * half;
+                if (distance > opticalDepth) continue;
+
+                var gradientX = signedGradients[x];
+                var gradientY = signedGradients[y];
+                var gradientLength = Math.Sqrt(gradientX * gradientX + gradientY * gradientY);
+                if (gradientLength < 1e-12) continue;
+
+                var normalX = gradientX / gradientLength;
+                var normalY = gradientY / gradientLength;
+                var position = Math.Clamp(distance / opticalDepth, 0d, 1d);
+                var lens = 1d - position;
+                lens = lens * lens * (3d - 2d * lens);
+                var displacement = maximumDisplacement * lens;
+                var sampleX = x - normalX * displacement;
+                var sampleY = y - normalY * displacement;
+                var tangentX = -normalY;
+                var tangentY = normalX;
+                var localBlur = blurRadius * (0.35d + 0.65d * lens);
+
+                SampleBgra(sourcePixels, size, sampleX, sampleY, out var blue0, out var green0, out var red0, out var alpha0);
+                SampleBgra(sourcePixels, size, sampleX + tangentX * localBlur, sampleY + tangentY * localBlur, out var blue1, out var green1, out var red1, out var alpha1);
+                SampleBgra(sourcePixels, size, sampleX - tangentX * localBlur, sampleY - tangentY * localBlur, out var blue2, out var green2, out var red2, out var alpha2);
+
+                var blue = blue0 * 0.5d + (blue1 + blue2) * 0.25d;
+                var green = green0 * 0.5d + (green1 + green2) * 0.25d;
+                var red = red0 * 0.5d + (red1 + red2) * 0.25d;
+                var sourceAlpha = alpha0 * 0.5d + (alpha1 + alpha2) * 0.25d;
+
+                if (variant == LiquidGlassVariant.Light)
+                {
+                    red = red * 1.035d + 6d;
+                    green = green * 1.045d + 8d;
+                    blue = blue * 1.06d + 11d;
+                }
+                else
+                {
+                    red = red * 0.82d + 5d;
+                    green = green * 0.86d + 7d;
+                    blue = blue * 0.91d + 10d;
+                }
+
+                var fade = 1d - position * position;
+                var materialOpacity = variant == LiquidGlassVariant.Light ? 0.78d : 0.84d;
+                var outputAlpha = sourceAlpha * materialOpacity * fade;
+                var index = (y * size + x) * 4;
+                outputPixels[index] = (byte)Math.Clamp(Math.Round(blue), 0d, 255d);
+                outputPixels[index + 1] = (byte)Math.Clamp(Math.Round(green), 0d, 255d);
+                outputPixels[index + 2] = (byte)Math.Clamp(Math.Round(red), 0d, 255d);
+                outputPixels[index + 3] = (byte)Math.Clamp(Math.Round(outputAlpha), 0d, 255d);
+            }
+        }
+
+        return CreateImageFromBgraPixels(size, outputPixels);
+    }
+
+    private static void SampleBgra(
+        byte[] pixels,
+        int size,
+        double x,
+        double y,
+        out double blue,
+        out double green,
+        out double red,
+        out double alpha)
+    {
+        x = Math.Clamp(x, 0d, size - 1.001d);
+        y = Math.Clamp(y, 0d, size - 1.001d);
+        var x0 = (int)x;
+        var y0 = (int)y;
+        var x1 = Math.Min(x0 + 1, size - 1);
+        var y1 = Math.Min(y0 + 1, size - 1);
+        var fractionX = x - x0;
+        var fractionY = y - y0;
+        var topLeft = (y0 * size + x0) * 4;
+        var topRight = (y0 * size + x1) * 4;
+        var bottomLeft = (y1 * size + x0) * 4;
+        var bottomRight = (y1 * size + x1) * 4;
+
+        blue = Bilinear(pixels[topLeft], pixels[topRight], pixels[bottomLeft], pixels[bottomRight], fractionX, fractionY);
+        green = Bilinear(pixels[topLeft + 1], pixels[topRight + 1], pixels[bottomLeft + 1], pixels[bottomRight + 1], fractionX, fractionY);
+        red = Bilinear(pixels[topLeft + 2], pixels[topRight + 2], pixels[bottomLeft + 2], pixels[bottomRight + 2], fractionX, fractionY);
+        alpha = Bilinear(pixels[topLeft + 3], pixels[topRight + 3], pixels[bottomLeft + 3], pixels[bottomRight + 3], fractionX, fractionY);
+    }
+
+    private static double Bilinear(double topLeft, double topRight, double bottomLeft, double bottomRight, double fractionX, double fractionY)
+    {
+        var top = topLeft + (topRight - topLeft) * fractionX;
+        var bottom = bottomLeft + (bottomRight - bottomLeft) * fractionX;
+        return top + (bottom - top) * fractionY;
     }
 
     private static MagickImage CreateImageFromBgraPixels(int size, byte[] pixels)
