@@ -97,6 +97,13 @@
                                     <Canvas x:Name="MaskedCanvas" ClipToBounds="True">
                                         <Image x:Name="PreviewImage" Stretch="Fill" />
                                     </Canvas>
+                                    <Canvas x:Name="LiquidGlassRefractionCanvas" ClipToBounds="True" Visibility="Collapsed" IsHitTestVisible="False">
+                                        <Image x:Name="RefractionPreviewImage" Stretch="Fill" Opacity="0.76">
+                                            <Image.Effect>
+                                                <BlurEffect Radius="1.4" RenderingBias="Quality" />
+                                            </Image.Effect>
+                                        </Image>
+                                    </Canvas>
                                     <Path x:Name="MaskOutline" Fill="Transparent" Stroke="#60FFFFFF" StrokeThickness="1.5" IsHitTestVisible="False" />
                                     <Path x:Name="LiquidGlassBodyOutline" Fill="Transparent" Visibility="Collapsed" IsHitTestVisible="False" />
                                     <Path x:Name="LiquidGlassSpecularOutline" Fill="Transparent" Visibility="Collapsed" IsHitTestVisible="False" />
@@ -150,17 +157,6 @@
                                                 <RadioButton x:Name="DarkGlassRadioButton" Content="Dark" GroupName="LiquidGlassVariant" Tag="Dark" Checked="LiquidGlassVariant_Checked" />
                                             </StackPanel>
                                         </DockPanel>
-
-                                        <DockPanel Margin="0,8,0,4">
-                                            <TextBlock Text="Толщина на 128 px" FontWeight="SemiBold" />
-                                            <TextBlock x:Name="LiquidGlassThicknessValueText" Text="6,0 px" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" />
-                                        </DockPanel>
-                                        <Slider x:Name="LiquidGlassThicknessSlider"
-                                                Minimum="0.5" Maximum="16" Value="6"
-                                                TickFrequency="0.1"
-                                                SmallChange="0.1" LargeChange="1"
-                                                IsSnapToTickEnabled="True"
-                                                ValueChanged="LiquidGlassThicknessSlider_ValueChanged" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
