@@ -31,5 +31,4 @@ public sealed record ExportRequest(
     int WebPQuality,
     int AvifQuality,
     bool AddLiquidGlassOutline,
-    double LiquidGlassThickness,
     LiquidGlassVariant LiquidGlassVariant);
