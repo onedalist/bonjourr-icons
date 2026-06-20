@@ -35,6 +35,10 @@
             <Setter Property="Background" Value="{StaticResource WindowBrush}" />
         </Style>
 
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+        </Style>
+
         <Style x:Key="PanelStyle" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource PanelBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
@@ -123,6 +127,12 @@
         </Style>
 
         <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="Margin" Value="0,5" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style TargetType="RadioButton">
             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
             <Setter Property="Margin" Value="0,5" />
             <Setter Property="Cursor" Value="Hand" />
