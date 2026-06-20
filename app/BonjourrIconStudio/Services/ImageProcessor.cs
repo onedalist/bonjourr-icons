@@ -10,7 +10,7 @@ public sealed record LoadedImage(BitmapSource Preview, int Width, int Height);
 
 public sealed class ImageProcessor
 {
-    private const int Oversampling = 4;
+    private const int Oversampling = 8;
 
     public LoadedImage LoadForEditing(string path)
     {
@@ -73,15 +73,15 @@ public sealed class ImageProcessor
             prepared.Resize(workingSize, workingSize);
             prepared.Alpha(AlphaOption.On);
 
-            using (var mask = CreateMask(checked((int)workingSize), request.ShapeExponent))
+            using (var mask = CreateMask(checked((int)workingSize)))
                 prepared.Composite(mask, CompositeOperator.CopyAlpha);
 
             if (request.AddLiquidGlassOutline)
             {
                 using var outline = CreateLiquidGlassOutline(
                     checked((int)workingSize),
-                    request.ShapeExponent,
-                    request.LiquidGlassThickness * Oversampling);
+                    request.LiquidGlassThickness * size / 128d * Oversampling,
+                    request.LiquidGlassVariant);
                 prepared.Composite(outline, CompositeOperator.Over);
             }
 
@@ -149,18 +149,23 @@ public sealed class ImageProcessor
         return (intX, intY, checked((uint)size));
     }
 
-    private static MagickImage CreateMask(int size, double exponent)
+    private static MagickImage CreateMask(int size)
     {
         var pixels = new byte[checked(size * size * 4)];
         var half = size / 2d;
+        var poweredCoordinates = new double[size];
+
+        for (var coordinate = 0; coordinate < size; coordinate++)
+        {
+            var normalized = Math.Abs((coordinate + 0.5d - half) / half);
+            poweredCoordinates[coordinate] = Math.Pow(normalized, SquircleGeometry.DefaultExponent);
+        }
 
         for (var y = 0; y < size; y++)
         {
-            var normalizedY = (y + 0.5d - half) / half;
             for (var x = 0; x < size; x++)
             {
-                var normalizedX = (x + 0.5d - half) / half;
-                var inside = SquircleGeometry.ContainsNormalized(normalizedX, normalizedY, exponent);
+                var inside = poweredCoordinates[x] + poweredCoordinates[y] <= 1d;
                 var index = (y * size + x) * 4;
                 pixels[index] = 255;
                 pixels[index + 1] = 255;
@@ -169,62 +174,93 @@ public sealed class ImageProcessor
             }
         }
 
-        var bitmap = BitmapSource.Create(
-            size,
-            size,
-            96,
-            96,
-            PixelFormats.Bgra32,
-            null,
-            pixels,
-            size * 4);
-        bitmap.Freeze();
-
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bitmap));
-        using var stream = new MemoryStream();
-        encoder.Save(stream);
-        stream.Position = 0;
-        return new MagickImage(stream);
+        return CreateImageFromBgraPixels(size, pixels);
     }
 
-    private static MagickImage CreateLiquidGlassOutline(int size, double exponent, double thickness)
+    private static MagickImage CreateLiquidGlassOutline(int size, double thickness, LiquidGlassVariant variant)
     {
         var pixels = new byte[checked(size * size * 4)];
         var half = size / 2d;
         var safeThickness = Math.Max(0.5d, thickness);
+        var normalizedCoordinates = new double[size];
+        var poweredCoordinates = new double[size];
+
+        for (var coordinate = 0; coordinate < size; coordinate++)
+        {
+            var normalized = (coordinate + 0.5d - half) / half;
+            var absolute = Math.Abs(normalized);
+            normalizedCoordinates[coordinate] = normalized;
+            poweredCoordinates[coordinate] = Math.Pow(absolute, SquircleGeometry.DefaultExponent);
+        }
 
         for (var y = 0; y < size; y++)
         {
-            var normalizedY = (y + 0.5d - half) / half;
-            var absY = Math.Abs(normalizedY);
+            var normalizedY = normalizedCoordinates[y];
             for (var x = 0; x < size; x++)
             {
-                var normalizedX = (x + 0.5d - half) / half;
-                var absX = Math.Abs(normalizedX);
-                var field = Math.Pow(absX, exponent) + Math.Pow(absY, exponent);
-                if (field > 1d) continue;
+                var normalizedX = normalizedCoordinates[x];
+                var field = poweredCoordinates[x] + poweredCoordinates[y];
+                if (field > 1d || field < 1e-12) continue;
 
-                var derivativeX = exponent * Math.Pow(absX, exponent - 1d) / half;
-                var derivativeY = exponent * Math.Pow(absY, exponent - 1d) / half;
-                var gradient = Math.Sqrt(derivativeX * derivativeX + derivativeY * derivativeY);
-                if (gradient < 1e-9) continue;
-
-                var distance = (1d - field) / gradient;
+                var boundaryScale = Math.Pow(field, -1d / SquircleGeometry.DefaultExponent);
+                var distance = (boundaryScale - 1d) *
+                               Math.Sqrt(normalizedX * normalizedX + normalizedY * normalizedY) * half;
                 if (distance > safeThickness) continue;
 
-                var fade = 1d - distance / safeThickness;
-                fade = fade * fade * (3d - 2d * fade);
-                var lightDirection = Math.Clamp(0.64d - (normalizedX + normalizedY) * 0.18d, 0.28d, 1d);
-                var alpha = (byte)Math.Clamp(Math.Round(150d * fade * lightDirection), 0d, 150d);
+                var position = Math.Clamp(distance / safeThickness, 0d, 1d);
+                var body = Math.Sqrt(Math.Max(0d, 4d * position * (1d - position)));
+
+                var outerWidth = Math.Max(0.8d, safeThickness * 0.11d);
+                var outerRim = 1d - Math.Clamp(distance / outerWidth, 0d, 1d);
+                outerRim *= outerRim;
+
+                var innerCenter = safeThickness * 0.88d;
+                var innerWidth = Math.Max(1d, safeThickness * 0.12d);
+                var innerRim = 1d - Math.Clamp(Math.Abs(distance - innerCenter) / innerWidth, 0d, 1d);
+                innerRim *= innerRim;
+
+                var lightDirection = Math.Clamp(0.5d - (normalizedX + normalizedY) * 0.3d, 0d, 1d);
+                var specular = outerRim * (0.28d + 0.72d * lightDirection) +
+                               innerRim * (0.12d + 0.88d * lightDirection);
+                var shadow = outerRim * (1d - lightDirection);
+
+                double alphaValue;
+                double colorMix;
+                (double R, double G, double B) darkColor;
+                (double R, double G, double B) lightColor;
+
+                if (variant == LiquidGlassVariant.Light)
+                {
+                    alphaValue = 58d * body + 185d * specular + 88d * shadow;
+                    colorMix = Math.Clamp(0.24d + 0.76d * lightDirection + 0.18d * innerRim, 0d, 1d);
+                    darkColor = (24d, 31d, 41d);
+                    lightColor = (248d, 253d, 255d);
+                }
+                else
+                {
+                    alphaValue = 100d * body + 175d * specular + 145d * shadow;
+                    colorMix = Math.Clamp(0.06d + 0.72d * lightDirection * specular + 0.22d * lightDirection * body, 0d, 1d);
+                    darkColor = (4d, 7d, 12d);
+                    lightColor = (228d, 247d, 255d);
+                }
+
+                var red = darkColor.R + (lightColor.R - darkColor.R) * colorMix;
+                var green = darkColor.G + (lightColor.G - darkColor.G) * colorMix;
+                var blue = darkColor.B + (lightColor.B - darkColor.B) * colorMix;
+                var alpha = (byte)Math.Clamp(Math.Round(alphaValue), 0d, 235d);
                 var index = (y * size + x) * 4;
-                pixels[index] = 255;
-                pixels[index + 1] = 255;
-                pixels[index + 2] = 248;
+                pixels[index] = (byte)Math.Clamp(Math.Round(blue), 0d, 255d);
+                pixels[index + 1] = (byte)Math.Clamp(Math.Round(green), 0d, 255d);
+                pixels[index + 2] = (byte)Math.Clamp(Math.Round(red), 0d, 255d);
                 pixels[index + 3] = alpha;
             }
         }
 
+        return CreateImageFromBgraPixels(size, pixels);
+    }
+
+    private static MagickImage CreateImageFromBgraPixels(int size, byte[] pixels)
+    {
         var bitmap = BitmapSource.Create(
             size,
             size,
