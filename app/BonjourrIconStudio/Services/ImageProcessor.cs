@@ -73,8 +73,17 @@ public sealed class ImageProcessor
             prepared.Resize(workingSize, workingSize);
             prepared.Alpha(AlphaOption.On);
 
-            using (var mask = CreateMask(checked((int)workingSize), request.AddSoftEdgeHighlight))
+            using (var mask = CreateMask(checked((int)workingSize), request.ShapeExponent))
                 prepared.Composite(mask, CompositeOperator.CopyAlpha);
+
+            if (request.AddLiquidGlassOutline)
+            {
+                using var outline = CreateLiquidGlassOutline(
+                    checked((int)workingSize),
+                    request.ShapeExponent,
+                    request.LiquidGlassThickness * Oversampling);
+                prepared.Composite(outline, CompositeOperator.Over);
+            }
 
             prepared.FilterType = FilterType.Lanczos;
             prepared.Resize((uint)size, (uint)size);
@@ -140,7 +149,7 @@ public sealed class ImageProcessor
         return (intX, intY, checked((uint)size));
     }
 
-    private static MagickImage CreateMask(int size, bool addEdgeHighlight)
+    private static MagickImage CreateMask(int size, double exponent)
     {
         var pixels = new byte[checked(size * size * 4)];
         var half = size / 2d;
@@ -151,12 +160,68 @@ public sealed class ImageProcessor
             for (var x = 0; x < size; x++)
             {
                 var normalizedX = (x + 0.5d - half) / half;
-                var inside = SquircleGeometry.ContainsNormalized(normalizedX, normalizedY);
+                var inside = SquircleGeometry.ContainsNormalized(normalizedX, normalizedY, exponent);
                 var index = (y * size + x) * 4;
                 pixels[index] = 255;
                 pixels[index + 1] = 255;
                 pixels[index + 2] = 255;
                 pixels[index + 3] = inside ? (byte)255 : (byte)0;
+            }
+        }
+
+        var bitmap = BitmapSource.Create(
+            size,
+            size,
+            96,
+            96,
+            PixelFormats.Bgra32,
+            null,
+            pixels,
+            size * 4);
+        bitmap.Freeze();
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        stream.Position = 0;
+        return new MagickImage(stream);
+    }
+
+    private static MagickImage CreateLiquidGlassOutline(int size, double exponent, double thickness)
+    {
+        var pixels = new byte[checked(size * size * 4)];
+        var half = size / 2d;
+        var safeThickness = Math.Max(0.5d, thickness);
+
+        for (var y = 0; y < size; y++)
+        {
+            var normalizedY = (y + 0.5d - half) / half;
+            var absY = Math.Abs(normalizedY);
+            for (var x = 0; x < size; x++)
+            {
+                var normalizedX = (x + 0.5d - half) / half;
+                var absX = Math.Abs(normalizedX);
+                var field = Math.Pow(absX, exponent) + Math.Pow(absY, exponent);
+                if (field > 1d) continue;
+
+                var derivativeX = exponent * Math.Pow(absX, exponent - 1d) / half;
+                var derivativeY = exponent * Math.Pow(absY, exponent - 1d) / half;
+                var gradient = Math.Sqrt(derivativeX * derivativeX + derivativeY * derivativeY);
+                if (gradient < 1e-9) continue;
+
+                var distance = (1d - field) / gradient;
+                if (distance > safeThickness) continue;
+
+                var fade = 1d - distance / safeThickness;
+                fade = fade * fade * (3d - 2d * fade);
+                var lightDirection = Math.Clamp(0.64d - (normalizedX + normalizedY) * 0.18d, 0.28d, 1d);
+                var alpha = (byte)Math.Clamp(Math.Round(150d * fade * lightDirection), 0d, 150d);
+                var index = (y * size + x) * 4;
+                pixels[index] = 255;
+                pixels[index + 1] = 255;
+                pixels[index + 2] = 248;
+                pixels[index + 3] = alpha;
             }
         }
 
