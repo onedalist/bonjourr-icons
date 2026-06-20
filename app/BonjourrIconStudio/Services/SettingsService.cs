@@ -26,18 +26,9 @@ public sealed class SettingsService
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
             if (string.IsNullOrWhiteSpace(settings.ExportFolder))
                 settings.ExportFolder = PortablePaths.DefaultExportFolder;
-            settings.CustomShapeExponent = Math.Clamp(settings.CustomShapeExponent, 2d, 8d);
-            settings.LiquidGlassThickness = Math.Clamp(settings.LiquidGlassThickness, 0.5d, 4d);
-            settings.SavedShapes ??= [];
-            settings.SavedShapes = settings.SavedShapes
-                .Where(shape => !string.IsNullOrWhiteSpace(shape.Name))
-                .Select(shape => new SavedShapePreset
-                {
-                    Id = string.IsNullOrWhiteSpace(shape.Id) ? Guid.NewGuid().ToString("N") : shape.Id,
-                    Name = shape.Name.Trim(),
-                    Exponent = Math.Clamp(shape.Exponent, 2d, 8d)
-                })
-                .ToList();
+            settings.LiquidGlassThickness = Math.Clamp(settings.LiquidGlassThickness, 0.5d, 16d);
+            if (!Enum.IsDefined(settings.LiquidGlassVariant))
+                settings.LiquidGlassVariant = LiquidGlassVariant.Light;
             return settings;
         }
         catch
