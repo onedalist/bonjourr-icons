@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -15,6 +17,11 @@ namespace BonjourrIconStudio;
 public partial class MainWindow : Window
 {
     private const double PreviewSize = 640d;
+    private const string Apple27ShapeId = "apple-27";
+    private const string IosClassicShapeId = "ios-classic";
+    private const string CustomShapeId = "custom";
+    private const double Apple27Exponent = 4.2d;
+    private const double IosClassicExponent = 5.0d;
     private readonly SettingsService _settingsService = new();
     private readonly TokenVaultService _vaultService = new();
     private readonly ImageProcessor _imageProcessor = new();
@@ -30,6 +37,9 @@ public partial class MainWindow : Window
     private double _dragStartOffsetX;
     private double _dragStartOffsetY;
     private bool _isDragging;
+    private bool _updatingShapeUi;
+    private string _selectedShapeId = Apple27ShapeId;
+    private double _shapeExponent = Apple27Exponent;
 
     public ObservableCollection<UploadItem> UploadItems { get; } = new();
 
@@ -40,6 +50,7 @@ public partial class MainWindow : Window
         PortablePaths.EnsureFolders();
         _settings = _settingsService.Load();
         ApplySettingsToUi();
+        InitializeShapeControls();
         InitializeMask();
         RefreshTokenState();
 
@@ -48,9 +59,230 @@ public partial class MainWindow : Window
 
     private void InitializeMask()
     {
-        var geometry = SquircleGeometry.Create(PreviewSize, PreviewSize);
+        var geometry = SquircleGeometry.Create(PreviewSize, PreviewSize, _shapeExponent);
         MaskedCanvas.Clip = geometry;
         MaskOutline.Data = geometry;
+        LiquidGlassOutline.Data = geometry;
+        UpdateLiquidGlassPreview();
+    }
+
+    private void InitializeShapeControls()
+    {
+        _updatingShapeUi = true;
+        try
+        {
+            RebuildSavedShapeOptions();
+            LiquidGlassCheckBox.IsChecked = _settings.LiquidGlassEnabled;
+            LiquidGlassThicknessSlider.Value = _settings.LiquidGlassThickness;
+
+            var requestedShapeId = _settings.SelectedShapeId;
+            if (!IsKnownShape(requestedShapeId)) requestedShapeId = Apple27ShapeId;
+            SelectShape(requestedShapeId, false);
+        }
+        finally
+        {
+            _updatingShapeUi = false;
+        }
+
+        UpdateShapeUiState();
+        UpdateLiquidGlassUiState();
+    }
+
+    private bool IsKnownShape(string? shapeId) =>
+        shapeId is Apple27ShapeId or IosClassicShapeId or CustomShapeId ||
+        _settings.SavedShapes.Any(shape => shape.Id == shapeId);
+
+    private double GetShapeExponent(string shapeId) => shapeId switch
+    {
+        Apple27ShapeId => Apple27Exponent,
+        IosClassicShapeId => IosClassicExponent,
+        CustomShapeId => _settings.CustomShapeExponent,
+        _ => _settings.SavedShapes.FirstOrDefault(shape => shape.Id == shapeId)?.Exponent ?? Apple27Exponent
+    };
+
+    private void SelectShape(string shapeId, bool saveSettings)
+    {
+        _selectedShapeId = shapeId;
+        _shapeExponent = GetShapeExponent(shapeId);
+        _settings.SelectedShapeId = shapeId;
+
+        Apple27RadioButton.IsChecked = shapeId == Apple27ShapeId;
+        IosClassicRadioButton.IsChecked = shapeId == IosClassicShapeId;
+        CustomShapeRadioButton.IsChecked = shapeId == CustomShapeId;
+        foreach (var radioButton in SavedShapesPanel.Children.OfType<RadioButton>())
+            radioButton.IsChecked = string.Equals(radioButton.Tag as string, shapeId, StringComparison.Ordinal);
+
+        ShapeExponentSlider.Value = _shapeExponent;
+        UpdateShapeUiState();
+        UpdateMaskGeometry();
+        if (saveSettings) _settingsService.Save(_settings);
+    }
+
+    private void RebuildSavedShapeOptions()
+    {
+        SavedShapesPanel.Children.Clear();
+        foreach (var shape in _settings.SavedShapes)
+        {
+            var radioButton = new RadioButton
+            {
+                Content = shape.Name,
+                GroupName = "ShapePreset",
+                Tag = shape.Id
+            };
+            radioButton.Checked += ShapePreset_Checked;
+            SavedShapesPanel.Children.Add(radioButton);
+        }
+
+        SavedShapesLabel.Visibility = _settings.SavedShapes.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void UpdateShapeUiState()
+    {
+        ShapeExponentValueText.Text = $"n = {_shapeExponent.ToString("0.0", CultureInfo.CurrentCulture)}";
+        SaveShapeButton.IsEnabled = _selectedShapeId == CustomShapeId;
+        DeleteShapeButton.Visibility = _settings.SavedShapes.Any(shape => shape.Id == _selectedShapeId)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void UpdateMaskGeometry()
+    {
+        if (MaskedCanvas is null) return;
+        var geometry = SquircleGeometry.Create(PreviewSize, PreviewSize, _shapeExponent);
+        MaskedCanvas.Clip = geometry;
+        MaskOutline.Data = geometry;
+        LiquidGlassOutline.Data = geometry;
+    }
+
+    private void ShapePreset_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_updatingShapeUi || sender is not RadioButton { IsChecked: true, Tag: string shapeId }) return;
+
+        _updatingShapeUi = true;
+        try
+        {
+            SelectShape(shapeId, true);
+        }
+        finally
+        {
+            _updatingShapeUi = false;
+        }
+    }
+
+    private void ShapeExponentSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!IsInitialized || _settings is null) return;
+
+        var exponent = Math.Round(e.NewValue, 1, MidpointRounding.AwayFromZero);
+        if (_updatingShapeUi)
+        {
+            _shapeExponent = exponent;
+            UpdateShapeUiState();
+            return;
+        }
+
+        _updatingShapeUi = true;
+        try
+        {
+            _shapeExponent = exponent;
+            _settings.CustomShapeExponent = exponent;
+            _selectedShapeId = CustomShapeId;
+            _settings.SelectedShapeId = CustomShapeId;
+            Apple27RadioButton.IsChecked = false;
+            IosClassicRadioButton.IsChecked = false;
+            CustomShapeRadioButton.IsChecked = true;
+            foreach (var radioButton in SavedShapesPanel.Children.OfType<RadioButton>()) radioButton.IsChecked = false;
+            ShapeExponentSlider.Value = exponent;
+            UpdateShapeUiState();
+            UpdateMaskGeometry();
+            _settingsService.Save(_settings);
+        }
+        finally
+        {
+            _updatingShapeUi = false;
+        }
+    }
+
+    private void SaveShape_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedShapeId != CustomShapeId) return;
+
+        var reservedNames = _settings.SavedShapes.Select(shape => shape.Name)
+            .Concat(["Apple 27", "iOS Classic", "Своя"])
+            .ToArray();
+        var dialog = new SaveShapeDialog(reservedNames) { Owner = this };
+        if (dialog.ShowDialog() != true) return;
+
+        var shape = new SavedShapePreset { Name = dialog.ShapeName, Exponent = _shapeExponent };
+        _settings.SavedShapes.Add(shape);
+
+        _updatingShapeUi = true;
+        try
+        {
+            RebuildSavedShapeOptions();
+            SelectShape(shape.Id, true);
+        }
+        finally
+        {
+            _updatingShapeUi = false;
+        }
+    }
+
+    private void DeleteShape_Click(object sender, RoutedEventArgs e)
+    {
+        var shape = _settings.SavedShapes.FirstOrDefault(item => item.Id == _selectedShapeId);
+        if (shape is null) return;
+        if (MessageBox.Show(this, $"Удалить форму «{shape.Name}»?", "Сохранённая форма", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        _settings.CustomShapeExponent = shape.Exponent;
+        _settings.SavedShapes.Remove(shape);
+        _updatingShapeUi = true;
+        try
+        {
+            RebuildSavedShapeOptions();
+            SelectShape(CustomShapeId, true);
+        }
+        finally
+        {
+            _updatingShapeUi = false;
+        }
+    }
+
+    private void LiquidGlassCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsInitialized || _settings is null || _updatingShapeUi) return;
+        _settings.LiquidGlassEnabled = LiquidGlassCheckBox.IsChecked == true;
+        UpdateLiquidGlassUiState();
+        UpdateLiquidGlassPreview();
+        _settingsService.Save(_settings);
+    }
+
+    private void LiquidGlassThicknessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!IsInitialized || _settings is null) return;
+        var thickness = Math.Round(e.NewValue, 1, MidpointRounding.AwayFromZero);
+        _settings.LiquidGlassThickness = thickness;
+        LiquidGlassThicknessValueText.Text = $"{thickness.ToString("0.0", CultureInfo.CurrentCulture)} px";
+        UpdateLiquidGlassPreview();
+        if (!_updatingShapeUi) _settingsService.Save(_settings);
+    }
+
+    private void UpdateLiquidGlassUiState()
+    {
+        var enabled = LiquidGlassCheckBox.IsChecked == true;
+        LiquidGlassThicknessPanel.IsEnabled = enabled;
+        LiquidGlassThicknessSlider.IsEnabled = enabled;
+        LiquidGlassThicknessValueText.Text = $"{_settings.LiquidGlassThickness.ToString("0.0", CultureInfo.CurrentCulture)} px";
+    }
+
+    private void UpdateLiquidGlassPreview()
+    {
+        if (LiquidGlassOutline is null || _settings is null) return;
+        var enabled = _settings.LiquidGlassEnabled;
+        LiquidGlassOutline.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+        MaskOutline.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
+        LiquidGlassOutline.StrokeThickness = Math.Max(1d, _settings.LiquidGlassThickness * 2.5d);
     }
 
     private void ApplySettingsToUi()
@@ -283,7 +515,17 @@ public partial class MainWindow : Window
                 _baseScale * ZoomSlider.Value,
                 _offsetX,
                 _offsetY);
-            var request = new ExportRequest(crop, ExportFolderTextBox.Text, baseName, sizes, formats, _settings.WebPQuality, _settings.AvifQuality, false);
+            var request = new ExportRequest(
+                crop,
+                ExportFolderTextBox.Text,
+                baseName,
+                sizes,
+                formats,
+                _settings.WebPQuality,
+                _settings.AvifQuality,
+                _shapeExponent,
+                _settings.LiquidGlassEnabled,
+                _settings.LiquidGlassThickness);
             var progress = new Progress<string>(message => EditorStatusText.Text = message);
             var files = await _imageProcessor.ExportAsync(request, progress);
 
