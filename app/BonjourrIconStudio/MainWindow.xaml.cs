@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -17,6 +16,9 @@ namespace BonjourrIconStudio;
 public partial class MainWindow : Window
 {
     private const double PreviewSize = 640d;
+    private const double GlassRimAt128 = 4d;
+    private const double GlassOpticalDepthAt128 = 12d;
+    private const double GlassMagnification = 1.078d;
     private readonly SettingsService _settingsService = new();
     private readonly TokenVaultService _vaultService = new();
     private readonly ImageProcessor _imageProcessor = new();
@@ -55,6 +57,14 @@ public partial class MainWindow : Window
         var geometry = SquircleGeometry.Create(PreviewSize, PreviewSize);
         MaskedCanvas.Clip = geometry;
         MaskOutline.Data = geometry;
+        var opticalDepth = GlassOpticalDepthAt128 * PreviewSize / 128d;
+        var innerSize = PreviewSize - opticalDepth * 2d;
+        var innerGeometry = SquircleGeometry.Create(innerSize, innerSize).Clone();
+        innerGeometry.Transform = new TranslateTransform(opticalDepth, opticalDepth);
+        innerGeometry.Freeze();
+        var refractionRing = new CombinedGeometry(GeometryCombineMode.Exclude, geometry, innerGeometry);
+        refractionRing.Freeze();
+        LiquidGlassRefractionCanvas.Clip = refractionRing;
         LiquidGlassBodyOutline.Data = geometry;
         LiquidGlassBodyOutline.Clip = geometry;
         LiquidGlassSpecularOutline.Data = geometry;
@@ -68,7 +78,6 @@ public partial class MainWindow : Window
         try
         {
             LiquidGlassCheckBox.IsChecked = _settings.LiquidGlassEnabled;
-            LiquidGlassThicknessSlider.Value = _settings.LiquidGlassThickness;
             LightGlassRadioButton.IsChecked = _settings.LiquidGlassVariant == LiquidGlassVariant.Light;
             DarkGlassRadioButton.IsChecked = _settings.LiquidGlassVariant == LiquidGlassVariant.Dark;
         }
@@ -89,16 +98,6 @@ public partial class MainWindow : Window
         _settingsService.Save(_settings);
     }
 
-    private void LiquidGlassThicknessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-    {
-        if (!IsInitialized || _settings is null) return;
-        var thickness = Math.Round(e.NewValue, 1, MidpointRounding.AwayFromZero);
-        _settings.LiquidGlassThickness = thickness;
-        LiquidGlassThicknessValueText.Text = $"{thickness.ToString("0.0", CultureInfo.CurrentCulture)} px";
-        UpdateLiquidGlassPreview();
-        if (!_updatingGlassUi) _settingsService.Save(_settings);
-    }
-
     private void LiquidGlassVariant_Checked(object sender, RoutedEventArgs e)
     {
         if (!IsInitialized || _settings is null || _updatingGlassUi ||
@@ -108,6 +107,7 @@ public partial class MainWindow : Window
 
         _settings.LiquidGlassVariant = variant;
         UpdateLiquidGlassPreview();
+        UpdateImageVisual();
         _settingsService.Save(_settings);
     }
 
@@ -115,21 +115,22 @@ public partial class MainWindow : Window
     {
         var enabled = LiquidGlassCheckBox.IsChecked == true;
         LiquidGlassOptionsPanel.IsEnabled = enabled;
-        LiquidGlassThicknessValueText.Text = $"{_settings.LiquidGlassThickness.ToString("0.0", CultureInfo.CurrentCulture)} px";
     }
 
     private void UpdateLiquidGlassPreview()
     {
         if (LiquidGlassBodyOutline is null || _settings is null) return;
         var enabled = _settings.LiquidGlassEnabled;
+        LiquidGlassRefractionCanvas.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         LiquidGlassBodyOutline.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         LiquidGlassSpecularOutline.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         MaskOutline.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
 
         var previewScale = PreviewSize / 128d;
-        LiquidGlassBodyOutline.StrokeThickness = Math.Max(2d, _settings.LiquidGlassThickness * previewScale * 2d);
-        var specularWidthAt128 = Math.Clamp(_settings.LiquidGlassThickness * 0.18d, 0.7d, 2.2d);
+        LiquidGlassBodyOutline.StrokeThickness = GlassRimAt128 * previewScale * 2d;
+        const double specularWidthAt128 = 0.9d;
         LiquidGlassSpecularOutline.StrokeThickness = specularWidthAt128 * previewScale * 2d;
+        RefractionPreviewImage.Opacity = _settings.LiquidGlassVariant == LiquidGlassVariant.Light ? 0.78d : 0.66d;
 
         if (_settings.LiquidGlassVariant == LiquidGlassVariant.Light)
         {
@@ -255,6 +256,7 @@ public partial class MainWindow : Window
             _sourcePath = path;
             PreviewImage.Source = loaded.Preview;
             DimmedImage.Source = loaded.Preview;
+            RefractionPreviewImage.Source = loaded.Preview;
             DropHint.Visibility = Visibility.Collapsed;
             ExportButton.IsEnabled = true;
             ImageInfoText.Text = $"{Path.GetFileName(path)}  ·  {loaded.Width} × {loaded.Height} px";
@@ -300,6 +302,15 @@ public partial class MainWindow : Window
             System.Windows.Controls.Canvas.SetLeft(image, left);
             System.Windows.Controls.Canvas.SetTop(image, top);
         }
+
+        var refractedWidth = width * GlassMagnification;
+        var refractedHeight = height * GlassMagnification;
+        var refractedLeft = PreviewSize / 2d + (left - PreviewSize / 2d) * GlassMagnification;
+        var refractedTop = PreviewSize / 2d + (top - PreviewSize / 2d) * GlassMagnification;
+        RefractionPreviewImage.Width = refractedWidth;
+        RefractionPreviewImage.Height = refractedHeight;
+        System.Windows.Controls.Canvas.SetLeft(RefractionPreviewImage, refractedLeft);
+        System.Windows.Controls.Canvas.SetTop(RefractionPreviewImage, refractedTop);
 
         ZoomValueText.Text = $"{ZoomSlider.Value * 100:0}%";
     }
@@ -406,7 +417,6 @@ public partial class MainWindow : Window
                 _settings.WebPQuality,
                 _settings.AvifQuality,
                 _settings.LiquidGlassEnabled,
-                _settings.LiquidGlassThickness,
                 _settings.LiquidGlassVariant);
             var progress = new Progress<string>(message => EditorStatusText.Text = message);
             var files = await _imageProcessor.ExportAsync(request, progress);
