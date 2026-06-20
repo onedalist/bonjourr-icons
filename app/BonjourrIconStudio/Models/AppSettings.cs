@@ -11,6 +11,5 @@ public sealed class AppSettings
     public int AvifQuality { get; set; } = 72;
     public bool UsePortableDataFolder { get; set; } = true;
     public bool LiquidGlassEnabled { get; set; }
-    public double LiquidGlassThickness { get; set; } = 6.0;
     public LiquidGlassVariant LiquidGlassVariant { get; set; } = LiquidGlassVariant.Light;
 }
