@@ -79,9 +79,9 @@ public sealed class ImageProcessor
                 using var refraction = CreateLiquidGlassRefraction(
                     prepared,
                     checked((int)workingSize),
-                    12d * glassScale,
-                    5d * glassScale,
-                    0.7d * glassScale,
+                    4d * glassScale,
+                    1.25d * glassScale,
+                    0.9d * glassScale,
                     request.LiquidGlassVariant);
                 prepared.Composite(refraction, CompositeOperator.Over);
 
@@ -241,14 +241,14 @@ public sealed class ImageProcessor
 
                 if (variant == LiquidGlassVariant.Light)
                 {
-                    alphaValue = 58d * body + 185d * specular + 88d * shadow;
+                    alphaValue = 24d * body + 85d * specular + 35d * shadow;
                     colorMix = Math.Clamp(0.24d + 0.76d * lightDirection + 0.18d * innerRim, 0d, 1d);
                     darkColor = (24d, 31d, 41d);
                     lightColor = (248d, 253d, 255d);
                 }
                 else
                 {
-                    alphaValue = 100d * body + 175d * specular + 145d * shadow;
+                    alphaValue = 42d * body + 95d * specular + 65d * shadow;
                     colorMix = Math.Clamp(0.06d + 0.72d * lightDirection * specular + 0.22d * lightDirection * body, 0d, 1d);
                     darkColor = (4d, 7d, 12d);
                     lightColor = (228d, 247d, 255d);
@@ -257,7 +257,8 @@ public sealed class ImageProcessor
                 var red = darkColor.R + (lightColor.R - darkColor.R) * colorMix;
                 var green = darkColor.G + (lightColor.G - darkColor.G) * colorMix;
                 var blue = darkColor.B + (lightColor.B - darkColor.B) * colorMix;
-                var alpha = (byte)Math.Clamp(Math.Round(alphaValue), 0d, 235d);
+                var maximumAlpha = variant == LiquidGlassVariant.Light ? 120d : 145d;
+                var alpha = (byte)Math.Clamp(Math.Round(alphaValue), 0d, maximumAlpha);
                 var index = (y * size + x) * 4;
                 pixels[index] = (byte)Math.Clamp(Math.Round(blue), 0d, 255d);
                 pixels[index + 1] = (byte)Math.Clamp(Math.Round(green), 0d, 255d);
@@ -318,8 +319,8 @@ public sealed class ImageProcessor
                 var normalX = gradientX / gradientLength;
                 var normalY = gradientY / gradientLength;
                 var position = Math.Clamp(distance / opticalDepth, 0d, 1d);
-                var lens = 1d - position;
-                lens = lens * lens * (3d - 2d * lens);
+                var smoothPosition = position * position * (3d - 2d * position);
+                var lens = 1d - smoothPosition;
                 var displacement = maximumDisplacement * lens;
                 var sampleX = x - normalX * displacement;
                 var sampleY = y - normalY * displacement;
@@ -349,8 +350,8 @@ public sealed class ImageProcessor
                     blue = blue * 0.91d + 10d;
                 }
 
-                var fade = 1d - position * position;
-                var materialOpacity = variant == LiquidGlassVariant.Light ? 0.78d : 0.84d;
+                var fade = 1d - smoothPosition;
+                var materialOpacity = variant == LiquidGlassVariant.Light ? 0.38d : 0.44d;
                 var outputAlpha = sourceAlpha * materialOpacity * fade;
                 var index = (y * size + x) * 4;
                 outputPixels[index] = (byte)Math.Clamp(Math.Round(blue), 0d, 255d);
