@@ -24,4 +24,6 @@ public sealed record ExportRequest(
     IReadOnlyCollection<IconFormat> Formats,
     int WebPQuality,
     int AvifQuality,
-    bool AddSoftEdgeHighlight);
+    double ShapeExponent,
+    bool AddLiquidGlassOutline,
+    double LiquidGlassThickness);
