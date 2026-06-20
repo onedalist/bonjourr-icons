@@ -5,7 +5,7 @@ namespace BonjourrIconStudio.Helpers;
 
 public static class SquircleGeometry
 {
-    public const double DefaultExponent = 5.0;
+    public const double DefaultExponent = 4.2;
 
     public static Geometry Create(double width, double height, double exponent = DefaultExponent)
     {
