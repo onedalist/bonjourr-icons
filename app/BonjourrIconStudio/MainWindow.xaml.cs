@@ -17,8 +17,8 @@ public partial class MainWindow : Window
 {
     private const double PreviewSize = 640d;
     private const double GlassRimAt128 = 4d;
-    private const double GlassOpticalDepthAt128 = 12d;
-    private const double GlassMagnification = 1.078d;
+    private const double GlassOpticalDepthAt128 = 4d;
+    private const double GlassMagnification = 1.02d;
     private readonly SettingsService _settingsService = new();
     private readonly TokenVaultService _vaultService = new();
     private readonly ImageProcessor _imageProcessor = new();
@@ -130,33 +130,33 @@ public partial class MainWindow : Window
         LiquidGlassBodyOutline.StrokeThickness = GlassRimAt128 * previewScale * 2d;
         const double specularWidthAt128 = 0.9d;
         LiquidGlassSpecularOutline.StrokeThickness = specularWidthAt128 * previewScale * 2d;
-        RefractionPreviewImage.Opacity = _settings.LiquidGlassVariant == LiquidGlassVariant.Light ? 0.78d : 0.66d;
+        RefractionPreviewImage.Opacity = _settings.LiquidGlassVariant == LiquidGlassVariant.Light ? 0.32d : 0.38d;
 
         if (_settings.LiquidGlassVariant == LiquidGlassVariant.Light)
         {
             LiquidGlassBodyOutline.Stroke = CreateGlassBrush(
-                (Color.FromArgb(215, 255, 255, 255), 0d),
-                (Color.FromArgb(130, 218, 246, 255), 0.36d),
-                (Color.FromArgb(72, 84, 101, 118), 0.76d),
-                (Color.FromArgb(170, 25, 30, 38), 1d));
+                (Color.FromArgb(92, 255, 255, 255), 0d),
+                (Color.FromArgb(70, 218, 246, 255), 0.36d),
+                (Color.FromArgb(32, 84, 101, 118), 0.76d),
+                (Color.FromArgb(72, 25, 30, 38), 1d));
             LiquidGlassSpecularOutline.Stroke = CreateGlassBrush(
-                (Color.FromArgb(255, 255, 255, 255), 0d),
-                (Color.FromArgb(215, 222, 249, 255), 0.4d),
-                (Color.FromArgb(45, 255, 255, 255), 0.72d),
-                (Color.FromArgb(125, 18, 22, 29), 1d));
+                (Color.FromArgb(138, 255, 255, 255), 0d),
+                (Color.FromArgb(105, 222, 249, 255), 0.4d),
+                (Color.FromArgb(20, 255, 255, 255), 0.72d),
+                (Color.FromArgb(55, 18, 22, 29), 1d));
         }
         else
         {
             LiquidGlassBodyOutline.Stroke = CreateGlassBrush(
-                (Color.FromArgb(175, 220, 245, 255), 0d),
-                (Color.FromArgb(180, 67, 80, 96), 0.34d),
-                (Color.FromArgb(220, 16, 22, 30), 0.74d),
-                (Color.FromArgb(238, 4, 7, 11), 1d));
+                (Color.FromArgb(98, 220, 245, 255), 0d),
+                (Color.FromArgb(105, 67, 80, 96), 0.34d),
+                (Color.FromArgb(122, 16, 22, 30), 0.74d),
+                (Color.FromArgb(138, 4, 7, 11), 1d));
             LiquidGlassSpecularOutline.Stroke = CreateGlassBrush(
-                (Color.FromArgb(255, 255, 255, 255), 0d),
-                (Color.FromArgb(185, 211, 242, 255), 0.4d),
-                (Color.FromArgb(48, 53, 66, 81), 0.72d),
-                (Color.FromArgb(190, 0, 0, 0), 1d));
+                (Color.FromArgb(142, 255, 255, 255), 0d),
+                (Color.FromArgb(102, 211, 242, 255), 0.4d),
+                (Color.FromArgb(28, 53, 66, 81), 0.72d),
+                (Color.FromArgb(108, 0, 0, 0), 1d));
         }
     }
 
