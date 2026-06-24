@@ -26,6 +26,7 @@ public partial class RecoveryPasswordDialog : Window
             Title = "Восстановление профиля";
             TitleText.Text = "Введите пароль восстановления";
             DescriptionText.Text = "Windows больше не может автоматически открыть этот профиль. После успешного ввода он будет привязан к текущей системе.";
+            ConfirmationLabel.Visibility = Visibility.Collapsed;
             ConfirmationInput.Visibility = Visibility.Collapsed;
         }
 
