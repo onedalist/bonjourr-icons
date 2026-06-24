@@ -7,6 +7,7 @@ public sealed class UploadItem : INotifyPropertyChanged
 {
     private bool _isSelected = true;
     private string _status = "Готов к загрузке";
+    private string? _publicUrl;
 
     public required string LocalPath { get; init; }
     public string FileName => Path.GetFileName(LocalPath);
@@ -42,6 +43,20 @@ public sealed class UploadItem : INotifyPropertyChanged
             OnPropertyChanged();
         }
     }
+
+    public string? PublicUrl
+    {
+        get => _publicUrl;
+        set
+        {
+            if (_publicUrl == value) return;
+            _publicUrl = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasPublicUrl));
+        }
+    }
+
+    public bool HasPublicUrl => !string.IsNullOrWhiteSpace(PublicUrl);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
