@@ -425,7 +425,11 @@ public partial class MainWindow : Window
             {
                 var existing = UploadItems.FirstOrDefault(item => string.Equals(item.LocalPath, file, StringComparison.OrdinalIgnoreCase));
                 if (existing is null) UploadItems.Add(new UploadItem { LocalPath = file });
-                else existing.Status = "Экспортирован заново";
+                else
+                {
+                    existing.PublicUrl = null;
+                    existing.Status = "Экспортирован заново";
+                }
             }
 
             EditorStatusText.Text = $"Готово: создано файлов — {files.Count}. Они добавлены в очередь публикации.";
@@ -505,10 +509,12 @@ public partial class MainWindow : Window
         {
             foreach (var item in selected)
             {
+                item.PublicUrl = null;
                 item.Status = "Загрузка…";
                 PublishStatusText.Text = $"Загружаю {item.FileName}…";
                 var result = await _gitHubService.UploadAsync(_currentToken!, _settings, item.LocalPath, OverwriteCheckBox.IsChecked == true);
-                item.Status = result.Success ? result.PublicUrl ?? "Загружено" : result.Message;
+                item.Status = result.Success ? "Загружено в GitHub. GitHub Pages может обновляться до минуты." : result.Message;
+                item.PublicUrl = result.Success ? result.PublicUrl : null;
                 if (result.Success)
                 {
                     successCount++;
@@ -529,6 +535,15 @@ public partial class MainWindow : Window
         {
             UploadButton.IsEnabled = true;
         }
+    }
+
+    private void CopyUploadLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: UploadItem item } || string.IsNullOrWhiteSpace(item.PublicUrl)) return;
+
+        Clipboard.SetText(item.PublicUrl);
+        item.Status = "Ссылка скопирована в буфер обмена.";
+        PublishStatusText.Text = $"Ссылка на {item.FileName} скопирована.";
     }
 
     private void SaveRepositorySettings_Click(object sender, RoutedEventArgs e)
