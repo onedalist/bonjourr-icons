@@ -246,6 +246,24 @@
                                                 <StackPanel Grid.Column="1">
                                                     <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" />
                                                     <TextBlock Text="{Binding Status}" Foreground="{StaticResource MutedTextBrush}" FontSize="13" Margin="0,4,0,0" />
+                                                    <Grid Margin="0,10,12,0">
+                                                        <Grid.Style>
+                                                            <Style TargetType="Grid">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasPublicUrl}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Grid.Style>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Text="{Binding PublicUrl}" IsReadOnly="True" FontSize="13" Padding="9,7" MinHeight="36" VerticalContentAlignment="Center" />
+                                                        <Button Grid.Column="1" Content="Копировать" Tag="{Binding}" Click="CopyUploadLink_Click" Padding="12,7" MinHeight="36" Margin="8,0,0,0" />
+                                                    </Grid>
                                                 </StackPanel>
                                                 <TextBlock Grid.Column="2" Text="{Binding SizeLabel}" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" />
                                             </Grid>
@@ -269,7 +287,7 @@
                             <StackPanel>
                                 <CheckBox x:Name="OverwriteCheckBox" Content="Заменять файлы с совпадающими именами" />
                                 <Button x:Name="UploadButton" Content="Загрузить выбранные" Style="{StaticResource PrimaryButton}" Margin="0,15,0,0" Click="Upload_Click" />
-                                <TextBlock Text="После загрузки ссылку GitHub Pages можно скопировать из статуса файла." Style="{StaticResource MutedText}" FontSize="13" Margin="0,12,0,0" />
+                                <TextBlock Text="После загрузки ссылка GitHub Pages появится рядом с файлом. Её можно выделить или скопировать кнопкой." Style="{StaticResource MutedText}" FontSize="13" Margin="0,12,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
