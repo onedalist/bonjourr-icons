@@ -50,6 +50,7 @@ public sealed class GitHubService
         var fileName = Path.GetFileName(localPath);
         var repositoryPath = string.Join('/', new[] { settings.RepositoryFolder.Trim('/'), fileName }
             .Where(part => !string.IsNullOrWhiteSpace(part)));
+        var publicUrl = BuildGitHubPagesUrl(settings, repositoryPath);
         var endpoint = ContentEndpoint(settings, repositoryPath);
 
         string? existingSha = null;
@@ -61,7 +62,7 @@ public sealed class GitHubService
                 var existing = JsonNode.Parse(await getResponse.Content.ReadAsStringAsync(cancellationToken));
                 existingSha = existing?["sha"]?.GetValue<string>();
                 if (!overwrite)
-                    return new GitHubUploadResult(false, true, $"Файл {fileName} уже существует.");
+                    return new GitHubUploadResult(false, true, $"Файл {fileName} уже существует.", publicUrl);
             }
             else if (getResponse.StatusCode != HttpStatusCode.NotFound)
             {
@@ -86,7 +87,6 @@ public sealed class GitHubService
         if (!putResponse.IsSuccessStatusCode)
             return new GitHubUploadResult(false, false, await DescribeErrorAsync(putResponse));
 
-        var publicUrl = BuildGitHubPagesUrl(settings, repositoryPath);
         return new GitHubUploadResult(true, false, "Загружено", publicUrl);
     }
 
