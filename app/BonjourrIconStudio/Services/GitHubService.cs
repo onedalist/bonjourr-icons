@@ -86,9 +86,20 @@ public sealed class GitHubService
         if (!putResponse.IsSuccessStatusCode)
             return new GitHubUploadResult(false, false, await DescribeErrorAsync(putResponse));
 
-        var encodedPath = string.Join('/', repositoryPath.Split('/').Select(Uri.EscapeDataString));
-        var publicUrl = $"https://{settings.RepositoryOwner}.github.io/{settings.RepositoryName}/{encodedPath}";
+        var publicUrl = BuildGitHubPagesUrl(settings, repositoryPath);
         return new GitHubUploadResult(true, false, "Загружено", publicUrl);
+    }
+
+    internal static string BuildGitHubPagesUrl(AppSettings settings, string repositoryPath)
+    {
+        var owner = settings.RepositoryOwner.Trim().ToLowerInvariant();
+        var repository = settings.RepositoryName.Trim().Trim('/');
+        var encodedRepository = Uri.EscapeDataString(repository);
+        var encodedPath = string.Join('/', repositoryPath
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(Uri.EscapeDataString));
+
+        return $"https://{owner}.github.io/{encodedRepository}/{encodedPath}";
     }
 
     private static HttpRequestMessage CreateRequest(HttpMethod method, string endpoint, string token)
