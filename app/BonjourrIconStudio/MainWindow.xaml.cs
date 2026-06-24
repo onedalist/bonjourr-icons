@@ -505,26 +505,41 @@ public partial class MainWindow : Window
 
         UploadButton.IsEnabled = false;
         var successCount = 0;
+        var existingCount = 0;
         try
         {
             foreach (var item in selected)
             {
-                item.PublicUrl = null;
                 item.Status = "Загрузка…";
                 PublishStatusText.Text = $"Загружаю {item.FileName}…";
                 var result = await _gitHubService.UploadAsync(_currentToken!, _settings, item.LocalPath, OverwriteCheckBox.IsChecked == true);
-                item.Status = result.Success ? "Загружено в GitHub. GitHub Pages может обновляться до минуты." : result.Message;
-                item.PublicUrl = result.Success ? result.PublicUrl : null;
+                if (result.PublicUrl is not null) item.PublicUrl = result.PublicUrl;
+
                 if (result.Success)
                 {
                     successCount++;
+                    item.Status = "Загружено в GitHub. GitHub Pages может обновляться до минуты.";
+                    item.IsSelected = false;
                     if (selected.Count == 1 && result.PublicUrl is not null) Clipboard.SetText(result.PublicUrl);
+                }
+                else if (result.AlreadyExists)
+                {
+                    existingCount++;
+                    item.Status = "Файл уже существует. Ссылка сохранена.";
+                    item.IsSelected = false;
+                    if (selected.Count == 1 && result.PublicUrl is not null) Clipboard.SetText(result.PublicUrl);
+                }
+                else
+                {
+                    item.Status = result.Message;
                 }
             }
 
             PublishStatusText.Text = selected.Count == 1 && successCount == 1
                 ? "Загружено. Ссылка скопирована в буфер обмена."
-                : $"Загружено файлов: {successCount} из {selected.Count}";
+                : selected.Count == 1 && existingCount == 1
+                    ? "Файл уже существует. Ссылка сохранена и скопирована."
+                    : $"Загружено: {successCount}. Уже существовало: {existingCount}. Ошибок: {selected.Count - successCount - existingCount}.";
         }
         catch (Exception ex)
         {
